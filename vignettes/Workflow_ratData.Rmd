@@ -1,0 +1,133 @@
+---
+title: "Phenome imputation of a population of outbred rats"
+author: "Hannah Meyer"
+date: "`r Sys.Date()`"
+output: 
+    rmarkdown::html_vignette
+        fig_caption: yes
+vignette: >
+  %\VignetteIndexEntry{Phenome imputation of a population of outbred rats}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r set parameters}
+col <- c('#fc8d62','#8da0cb')
+text_size <- 12
+cutoff <- 0.95
+```
+
+```{r read data}
+## directories ####
+rawdir <- "~/data/LiMMBo/rat/rawdata/arrayexpress"
+directory <- "~/data/LiMMBo/rat/processeddata"
+
+## data ####
+phenotypes_normal <- read.table(paste(rawdir, "/phenotypes_normal.csv", sep=""), 
+                            header=TRUE, row.names=1, stringsAsFactors=FALSE, 
+                            sep=",")
+kinship <- read.table(paste(rawdir, "/HS_rats_kinship.csv", sep=""), 
+                            header=TRUE, stringsAsFactors=FALSE, 
+                            sep=",")
+
+common_samples <- colnames(kinship)[colnames(kinship) %in% 
+                                        rownames(phenotypes_normal)]
+kinship <- kinship[colnames(kinship) %in% common_samples,
+                   colnames(kinship) %in% common_samples]
+phenotypes_normal <- phenotypes_normal[rownames(phenotypes_normal) %in% 
+                                           common_samples,]
+phenotypes_normal <- phenotypes_normal[match(colnames(kinship), 
+                                             rownames(phenotypes_normal)),]
+```
+
+
+## 1. pattern of missing data ####
+```{r read data}
+## a) distribution
+plot_pattern_missingness(phenotypes_normal, directory=directory,
+                         name="missing_data_pattern_allTraits")
+
+frequency_missingness <- data.frame(missing=
+                                        apply(phenotypes_normal, 2, function(x)
+                                            length(which(is.na(x)))/length(x)))
+frequency_missingness$complete <- 1 - frequency_missingness$missing
+
+per_sample_missingness <- data.frame(missing=
+                                         apply(phenotypes_normal, 1, function(x) 
+                                             length(which(is.na(x)))/length(x)))
+per_sample_missingness$complete <- 1 - per_sample_missingness$missing
+```
+
+```{r initial phenotype filtering}
+Samples2Keep <- per_sample_missingness$missing <= 0.20
+Traits2Keep <- frequency_missingness$missing <= 0.20
+
+pheno <- phenotypes_normal[Samples2Keep, Traits2Keep]
+kinship <- kinship[Samples2Keep, Samples2Keep]
+
+plot_pattern_missingness(pheno, directory=directory,
+                         name="missing_data_pattern_filteredTraits")
+```
+
+# b) Missing data mechanism
+```{r missing data mechanism}
+### MAR
+corrMiss <- correlationMissingness(pheno)
+plot_correlation_missingness(data=corrMiss, pdf=FALSE)
+```
+
+
+# 2. dataset with no missing values
+```{r fully phenoytped samples}
+pheno_noNA <- fullPhenotypes(pheno)
+
+## a) correlation between phenotypes 
+corrPhenotypes <- correlationPhenotypes(pheno)
+
+plot_correlation_phenotypes(data_r=corrPhenotypes$r, 
+                            data_p=corrPhenotypes$padjust,pdf=FALSE)
+```
+
+# 3. generate matrix with artificial missingness
+```{r artifical missingness}
+pheno_artificial <- artificialMissingness(data=pheno, fulldata=pheno_noNA,
+                                     kinship=kinship, seed=3422)
+plot_pattern_missingness(pheno_artificial$data_addNA, directory=directory,
+                         name="missing_data_pattern_simulated")
+
+```
+
+# 4. impute artifically created missing data ####
+```{r impute artifical missingness,  fig.show='hold', fig.cap = ""}
+imputed <- imputeData(data=pheno_artificial$data_addNA, 
+                      fulldata=pheno_noNA,
+                      kinship=pheno_artificial$kinship,
+                      method=c("phenix", "mvn", "mice"),
+                      cutoff=cutoff)
+plot_overview_correlation_imputation(imputed)
+plot_individual_correlation_imputation(imputed)
+```
+
+
+## 5. Impute full data set ####
+```{r impute full data set}
+Traits2Keep <- lapply(c("phenix", "mvn"), function(m) {
+        df <- dplyr::filter(imputed, type==m) 
+        df$value > cutoff})
+        
+pheno_phenix <- pheno[Samples2Keep, Traits2Keep_phenix]
+impute_phenix <- phenix(Y=as.matrix(pheno_phenix), 
+       as.matrix(kinship[Samples2Keep,Samples2Keep]))
+
+write.table(impute_phenix$imp, paste(directory, 
+                                 "/BYxRM_pheno_phenix.csv", sep=""), 
+            sep=",", col.names=NA, row.names=TRUE, quote=FALSE)
+
+```
