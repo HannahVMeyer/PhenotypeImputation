@@ -21,7 +21,7 @@ correlationMissingness <- function(data) {
     corrMiss <- t(sapply(1:ncol(data), function(y) {
         sapply(1:ncol(data), function(x) {
             rcorr(data_missing[!is.na(data[,y]),x], 
-                  data[!is.na(data[,y]),y])$r[1,2]
+                  data[!is.na(data[,y]),y],type="spearman")$r[1,2]
         })
     }))
     colnames(corrMiss) <- colnames(pheno)
@@ -29,7 +29,7 @@ correlationMissingness <- function(data) {
     return(corrMiss)
 }
 
-correlationPhenotypes <- function(data, type="spearman") {
+correlationPhenotypes <- function(data, type="pearson") {
     data_r <- rcorr(as.matrix(data), type=type)$r
     data_p <- rcorr(as.matrix(data), type=type)$P
     data_n <- diag(rcorr(as.matrix(data), type=type)$n)
