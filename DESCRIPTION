@@ -1,8 +1,12 @@
 Package: imputation
-Title: What the Package Does (one line, title case)
-Version: 0.0.0.9000
-Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+Title: Workflow for phenotype imputation
+Version: 0.0.1
+Authors@R: person("Hannah", "Meyer", email = "Hannah.v.meyer@gmail.com", 
+    role = c("aut", "cre"))
+Description: Collection of function from R packages for imputation, missing data
+    visualisation and statistical tests for missingness mechanisms. Offers a 
+    workflow for imputing phenotypes, choice of imputation method and 
+    visualisation of missingness patterns and imputation quality. 
 Depends: 
     R (>= 3.5.0)
 Imports:
@@ -21,3 +25,4 @@ LazyData: true
 Suggests: knitr,
     rmarkdown
 VignetteBuilder: knitr
+RoxygenNote: 6.0.1
