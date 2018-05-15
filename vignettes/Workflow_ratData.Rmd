@@ -2,8 +2,10 @@
 title: "Phenome imputation of a population of outbred rats"
 author: "Hannah Meyer"
 date: "`r Sys.Date()`"
-output: 
-    rmarkdown::html_vignette
+output:    
+    pdf_document:
+        toc: true
+        toc_depth: 2
         fig_caption: yes
 vignette: >
   %\VignetteIndexEntry{Phenome imputation of a population of outbred rats}
@@ -12,17 +14,25 @@ vignette: >
 ---
 
 ```{r setup, include = FALSE}
+devtools::load_all()
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
 ```
+The following vignette shows the imputation workflow for an additional dataset.
+More detailed information about the analysis steps can be found in the vignette
+'Phenome imputation of a panel of prototrophic haploid yeast segregants'. 
 
-```{r set parameters}
-col <- c('#fc8d62','#8da0cb')
-text_size <- 12
-cutoff <- 0.95
-```
+# 1. Dataset
+The dataset consists of an outbred population of rats descended from eight 
+inbred progenitors. 2,006 outbred rats were phenotypes for 195 traits of 
+biomedical relevance including hematological, immunological, cardiovascular and 
+fear-related phenotypes. 1,407 of the rats were genotyped @Baud2013,@Baud2014.
+
+The phenotype and genotype data was downloaded from [arrayexpress](https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-2332/) and [figshare](http://dx.doi.org/10.6084/m9.figshare.943485 (2014).).
+The kinship was estimated from these genotypes: the *NrSamples x NrSNPs* genotypes $X$ were filtered for minor allele
+frequency of at least 5\% and the kinship estimated as $R=\frac{1}{NrSNPs}X^TX$.
 
 ```{r read data}
 ## directories ####
@@ -30,10 +40,11 @@ rawdir <- "~/data/LiMMBo/rat/rawdata/arrayexpress"
 directory <- "~/data/LiMMBo/rat/processeddata"
 
 ## data ####
-phenotypes_normal <- read.table(paste(rawdir, "/phenotypes_normal.csv", sep=""), 
+phenotypes_normal <- read.table(paste(directory, "/phenotypes_normal.csv", 
+                                      sep=""), 
                             header=TRUE, row.names=1, stringsAsFactors=FALSE, 
                             sep=",")
-kinship <- read.table(paste(rawdir, "/HS_rats_kinship.csv", sep=""), 
+kinship <- read.table(paste(rawdir, "/HS_rats_kinship_norm.csv", sep=""), 
                             header=TRUE, stringsAsFactors=FALSE, 
                             sep=",")
 
@@ -45,11 +56,18 @@ phenotypes_normal <- phenotypes_normal[rownames(phenotypes_normal) %in%
                                            common_samples,]
 phenotypes_normal <- phenotypes_normal[match(colnames(kinship), 
                                              rownames(phenotypes_normal)),]
+
+## general parameters ####
+cutoff <- 0.95
+col <- c('#fc8d62','#8da0cb')
+text_size <- 12
 ```
 
 
-## 1. pattern of missing data ####
-```{r read data}
+# 2. Pattern of missing data 
+Aggregation plot (middle) where all existing combinations of missing (blue) and non-missing (orange) values in the traits are depicted. The bar chart on its right shows the frequencies of occurrence of the different combinations. The histogram on the top shows the frequency of missing values for each trait.
+
+```{r missing data}
 ## a) distribution
 plot_pattern_missingness(phenotypes_normal, directory=directory,
                          name="missing_data_pattern_allTraits")
@@ -65,7 +83,7 @@ per_sample_missingness <- data.frame(missing=
 per_sample_missingness$complete <- 1 - per_sample_missingness$missing
 ```
 
-```{r initial phenotype filtering}
+```{r initial phenotype filtering, message=FALSE}
 Samples2Keep <- per_sample_missingness$missing <= 0.20
 Traits2Keep <- frequency_missingness$missing <= 0.20
 
@@ -76,58 +94,93 @@ plot_pattern_missingness(pheno, directory=directory,
                          name="missing_data_pattern_filteredTraits")
 ```
 
-# b) Missing data mechanism
-```{r missing data mechanism}
+Any sample with more than 20\% missing phenotype data is removed from further analyses, reducing the dataset to `r nrow(pheno)` samples. The aggregation and frequency plots for this reduced dataset is shown above.
+
+
+# 3. Missing data mechanism
+Requirement for MAR data: missingness is predictable. If it can be demonstrated that one or more variables in the dataset are significantly correlated with missing values, missingness may be predictable
+Visiually examining predictable missingness by correlating the observed values across all samples with each column of an indicator matrix, i.e. the missingness patterns per trait. If all values were observed for a given trait, all values in the indicator matrix in this column were equal to zero and the correlation between the trait and the missingness was set to NA. Overall, there is sufficient evidence for predictable missingness.
+
+```{r missing data mechanism, fig.height=4, fig.width=4}
 ### MAR
 corrMiss <- correlationMissingness(pheno)
-plot_correlation_missingness(data=corrMiss, pdf=FALSE)
+plot_correlation_missingness(data=corrMiss, savePdf=TRUE,
+                             directory=directory, labelsize=0.3)
 ```
 
 
-# 2. dataset with no missing values
-```{r fully phenoytped samples}
+# 4. Dataset with no missing values
+```{r fully phenoytped samples, fig.height=6, fig.width=6}
 pheno_noNA <- fullPhenotypes(pheno)
 
 ## a) correlation between phenotypes 
 corrPhenotypes <- correlationPhenotypes(pheno)
 
 plot_correlation_phenotypes(data_r=corrPhenotypes$r, 
-                            data_p=corrPhenotypes$padjust,pdf=FALSE)
+                            data_p=corrPhenotypes$padjust, savePdf=TRUE,
+                            directory=directory, labelsize=0.3)
 ```
 
-# 3. generate matrix with artificial missingness
-```{r artifical missingness}
+Out of the  `r nrow(pheno)` rats for which at least 80\% of phenotypes were measured, `r nrow(pheno_noNA)` were fully phenotyped. The pairwise phenotype correlation across these rats is shown above.
+
+# 5. Generate dataset with artificial missingness
+Use the subset of the `r nrow(pheno_noNA)` fully phenotyped rats and introducing missing values with a similar pattern of missingness as observed in the original dataset. The results for the real and simulated  dataset are similar in terms of frequencies and combinations of missing/non-missing traits.
+
+```{r artifical missingness, message=FALSE}
 pheno_artificial <- artificialMissingness(data=pheno, fulldata=pheno_noNA,
                                      kinship=kinship, seed=3422)
 plot_pattern_missingness(pheno_artificial$data_addNA, directory=directory,
-                         name="missing_data_pattern_simulated")
+                         name="missing_data_pattern_simulated", savePdf=TRUE)
 
 ```
 
-# 4. impute artifically created missing data ####
-```{r impute artifical missingness,  fig.show='hold', fig.cap = ""}
+# 6. Impute artifically created missing data ####
+The masked values in the dataset with artificial missingness were imputed with two genetic (phenix and mpmm) and two non-genetic (mvn and mice) methods. For imputation with mice, different predictor sets were analyses, based on the correlation of the measured phenotypes. After imputation, the goodness of the imputation is evaluated by computing the Pearson correlation of the imputed values to the experimentally observed ones. Table \ref{tab:imputation} show those correlations across all traits for all imputation methods.
+
+```{r impute artifical missingness, fig.height=3, fig.width=5, cache=TRUE,  fig.align='center', fig.show='hold', fig.cap = ""}
 imputed <- imputeData(data=pheno_artificial$data_addNA, 
                       fulldata=pheno_noNA,
                       kinship=pheno_artificial$kinship,
                       method=c("phenix", "mvn", "mice"),
-                      cutoff=cutoff)
-plot_overview_correlation_imputation(imputed)
-plot_individual_correlation_imputation(imputed)
+                      cutoff=cutoff, testing=TRUE)
+knitr::kable(imputed$summary, 
+caption="\\label{tab:imputation}Correlation of imputed vs real phenotype values")
+plot_overview_correlation_imputation(imputed$cor, savePdf=TRUE,
+                                     directory=directory,
+                                     text_size=6)
+```
+
+```{r plot individual imputation results, fig.keep='all', fig.show='hold',fig.align='center', fig.height=3, fig.width=5, cache=TRUE, message=FALSE, warning=FALSE}
+
+corr_plots_methods <- plot_individual_correlation_imputation(imputed$cor, 
+                                                            savePdf=TRUE,
+                                       directory=directory, text_size=6)
+dummy <- lapply(corr_plots_methods, function(p) print(p))
 ```
 
 
-## 5. Impute full data set ####
-```{r impute full data set}
-Traits2Keep <- lapply(c("phenix", "mvn"), function(m) {
-        df <- dplyr::filter(imputed, type==m) 
-        df$value > cutoff})
-        
-pheno_phenix <- pheno[Samples2Keep, Traits2Keep_phenix]
-impute_phenix <- phenix(Y=as.matrix(pheno_phenix), 
-       as.matrix(kinship[Samples2Keep,Samples2Keep]))
+## 7. Impute full data set
+For this dataset, imputation via mvn (non-genetic) and phenix (genetic) yielded the
+strongest average correlations between the imputed and real measurements. The traits that can be reliable imputed (correlation greater than 95\%) are selected and the missing values from the phenotype set with `r nrow(pheno)` rats imputed.
 
-write.table(impute_phenix$imp, paste(directory, 
-                                 "/BYxRM_pheno_phenix.csv", sep=""), 
+```{r impute full data set}
+traits2keep <-  data.frame(sapply(c("phenix", "mvn"), imputableTraits, 
+                                  imputed, cutoff))
+        
+pheno_phenix <- pheno[, traits2keep$phenix]
+impute_phenix <- imputeData(data=as.matrix(pheno_phenix), 
+                            kinship=as.matrix(kinship),
+                            method="phenix")
+
+write.table(impute_phenix$imp$phenix$imp, paste(directory, 
+                                 "/phenotypes_phenix.csv", sep=""), 
+            sep=",", col.names=NA, row.names=TRUE, quote=FALSE)
+
+pheno_mvn <- pheno[, traits2keep$mvn]
+impute_mvn <- imputeData(data=as.matrix(pheno_mvn), 
+                            method="mvn")
+write.table(impute_mvn$imp$imp, paste(directory, 
+                                 "/phenotypes_mvn.csv", sep=""), 
             sep=",", col.names=NA, row.names=TRUE, quote=FALSE)
 
 ```
