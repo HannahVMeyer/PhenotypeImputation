@@ -2,6 +2,8 @@
 title: "Phenome imputation of a population of outbred rats"
 author: "Hannah Meyer"
 date: "`r Sys.Date()`"
+bibliography: referencesRat.bib
+csl: plos-genetics.csl
 output:    
     pdf_document:
         toc: true
@@ -31,8 +33,9 @@ biomedical relevance including hematological, immunological, cardiovascular and
 fear-related phenotypes. 1,407 of the rats were genotyped @Baud2013,@Baud2014.
 
 The phenotype and genotype data was downloaded from [arrayexpress](https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-2332/) and [figshare](http://dx.doi.org/10.6084/m9.figshare.943485 (2014).).
-The kinship was estimated from these genotypes: the *NrSamples x NrSNPs* genotypes $X$ were filtered for minor allele
-frequency of at least 5\% and the kinship estimated as $R=\frac{1}{NrSNPs}X^TX$.
+The kinship was estimated from these genotypes: the *NrSamples x NrSNPs* 
+genotypes $X$ were filtered for minor allele frequency of at least 5\% and the 
+kinship estimated as $R=\frac{1}{NrSNPs}X^TX$.
 
 ```{r read data}
 ## directories ####
@@ -44,6 +47,11 @@ phenotypes_normal <- read.table(paste(directory, "/phenotypes_normal.csv",
                                       sep=""), 
                             header=TRUE, row.names=1, stringsAsFactors=FALSE, 
                             sep=",")
+
+covariates <- read.table(paste(directory, "/covariates.csv", sep=""), 
+                            header=TRUE,  row.names=1, stringsAsFactors=FALSE, 
+                            sep=",")
+
 kinship <- read.table(paste(rawdir, "/HS_rats_kinship_norm.csv", sep=""), 
                             header=TRUE, stringsAsFactors=FALSE, 
                             sep=",")
@@ -57,6 +65,14 @@ phenotypes_normal <- phenotypes_normal[rownames(phenotypes_normal) %in%
 phenotypes_normal <- phenotypes_normal[match(colnames(kinship), 
                                              rownames(phenotypes_normal)),]
 
+covariates <- covariates[rownames(covariates) %in% 
+                                           common_samples,]
+covariates <- covariates[match(colnames(kinship), 
+                                             rownames(covariates)),]
+
+# for imputation purposes, combine covariate and phenotype data
+combined_all <- cbind(covariates, phenotypes_normal)
+
 ## general parameters ####
 cutoff <- 0.95
 col <- c('#fc8d62','#8da0cb')
@@ -69,32 +85,33 @@ Aggregation plot (middle) where all existing combinations of missing (blue) and 
 
 ```{r missing data}
 ## a) distribution
-plot_pattern_missingness(phenotypes_normal, directory=directory,
+plot_pattern_missingness(combined_all, directory=directory,
                          name="missing_data_pattern_allTraits")
 
 frequency_missingness <- data.frame(missing=
-                                        apply(phenotypes_normal, 2, function(x)
+                                        apply(combined_all, 2, function(x)
                                             length(which(is.na(x)))/length(x)))
 frequency_missingness$complete <- 1 - frequency_missingness$missing
 
+Traits2Keep <- frequency_missingness$missing <= 0.20
+combined_filterTraits <- combined_all[, Traits2Keep]
+
 per_sample_missingness <- data.frame(missing=
-                                         apply(phenotypes_normal, 1, function(x) 
+                                         apply(combined_filterTraits, 1, function(x) 
                                              length(which(is.na(x)))/length(x)))
 per_sample_missingness$complete <- 1 - per_sample_missingness$missing
+
+Samples2Keep <- per_sample_missingness$missing <= 0.20
+kinship <- kinship[Samples2Keep, Samples2Keep]
+combined <- combined_filterTraits[Samples2Keep,]
 ```
 
 ```{r initial phenotype filtering, message=FALSE}
-Samples2Keep <- per_sample_missingness$missing <= 0.20
-Traits2Keep <- frequency_missingness$missing <= 0.20
-
-pheno <- phenotypes_normal[Samples2Keep, Traits2Keep]
-kinship <- kinship[Samples2Keep, Samples2Keep]
-
-plot_pattern_missingness(pheno, directory=directory,
+plot_pattern_missingness(combined, directory=directory,
                          name="missing_data_pattern_filteredTraits")
 ```
 
-Any sample with more than 20\% missing phenotype data is removed from further analyses, reducing the dataset to `r nrow(pheno)` samples. The aggregation and frequency plots for this reduced dataset is shown above.
+Any sample with more than 20\% missing phenotype data is removed from further analyses, reducing the dataset to `r nrow(combined)` samples. The aggregation and frequency plots for this reduced dataset is shown above.
 
 
 # 3. Missing data mechanism
@@ -103,7 +120,7 @@ Visiually examining predictable missingness by correlating the observed values a
 
 ```{r missing data mechanism, fig.height=4, fig.width=4}
 ### MAR
-corrMiss <- correlationMissingness(pheno)
+corrMiss <- correlationMissingness(combined)
 plot_correlation_missingness(data=corrMiss, savePdf=TRUE,
                              directory=directory, labelsize=0.3)
 ```
@@ -111,37 +128,37 @@ plot_correlation_missingness(data=corrMiss, savePdf=TRUE,
 
 # 4. Dataset with no missing values
 ```{r fully phenoytped samples, fig.height=6, fig.width=6}
-pheno_noNA <- fullPhenotypes(pheno)
+combined_noNA <- fullPhenotypes(combined)
 
 ## a) correlation between phenotypes 
-corrPhenotypes <- correlationPhenotypes(pheno)
+corrPhenotypes <- correlationPhenotypes(combined)
 
 plot_correlation_phenotypes(data_r=corrPhenotypes$r, 
                             data_p=corrPhenotypes$padjust, savePdf=TRUE,
                             directory=directory, labelsize=0.3)
 ```
 
-Out of the  `r nrow(pheno)` rats for which at least 80\% of phenotypes were measured, `r nrow(pheno_noNA)` were fully phenotyped. The pairwise phenotype correlation across these rats is shown above.
+Out of the  `r nrow(combined)` rats for which at least 80\% of phenotypes were measured, `r nrow(combined_noNA)` were fully phenotyped. The pairwise phenotype correlation across these rats is shown above.
 
 # 5. Generate dataset with artificial missingness
-Use the subset of the `r nrow(pheno_noNA)` fully phenotyped rats and introducing missing values with a similar pattern of missingness as observed in the original dataset. The results for the real and simulated  dataset are similar in terms of frequencies and combinations of missing/non-missing traits.
+Use the subset of the `r nrow(combined_noNA)` fully phenotyped rats and introducing missing values with a similar pattern of missingness as observed in the original dataset. The results for the real and simulated  dataset are similar in terms of frequencies and combinations of missing/non-missing traits.
 
 ```{r artifical missingness, message=FALSE}
-pheno_artificial <- artificialMissingness(data=pheno, fulldata=pheno_noNA,
+combined_artificial <- artificialMissingness(data=combined, fulldata=combined_noNA,
                                      kinship=kinship, seed=3422)
-plot_pattern_missingness(pheno_artificial$data_addNA, directory=directory,
+plot_pattern_missingness(combined_artificial$data_addNA, directory=directory,
                          name="missing_data_pattern_simulated", savePdf=TRUE)
 
 ```
 
 # 6. Impute artifically created missing data ####
-The masked values in the dataset with artificial missingness were imputed with two genetic (phenix and mpmm) and two non-genetic (mvn and mice) methods. For imputation with mice, different predictor sets were analyses, based on the correlation of the measured phenotypes. After imputation, the goodness of the imputation is evaluated by computing the Pearson correlation of the imputed values to the experimentally observed ones. Table \ref{tab:imputation} show those correlations across all traits for all imputation methods.
+The masked values in the dataset with artificial missingness were imputed with two genetic (phenix and mpmm) and two non-genetic (mvn and mice) methods. For imputation with mice, different predictor sets were analysed, based on the correlation of the measured phenotypes (All phenotypes as predictors, phenotypes with correlation > 0.1, 0.2 or greater 0.3). After imputation, the goodness of the imputation is evaluated by computing the Pearson correlation of the imputed values to the experimentally observed ones. Table \ref{tab:imputation} show those correlations across all traits for all imputation methods.
 
 ```{r impute artifical missingness, fig.height=3, fig.width=5, cache=TRUE,  fig.align='center', fig.show='hold', fig.cap = ""}
-imputed <- imputeData(data=pheno_artificial$data_addNA, 
-                      fulldata=pheno_noNA,
-                      kinship=pheno_artificial$kinship,
-                      method=c("phenix", "mvn", "mice"),
+imputed <- imputeData(data=as.matrix(combined_artificial$data_addNA), 
+                      fulldata=combined_noNA,
+                      kinship=combined_artificial$kinship,
+                      method=c("phenix",  "mvn", "mice"),
                       cutoff=cutoff, testing=TRUE)
 knitr::kable(imputed$summary, 
 caption="\\label{tab:imputation}Correlation of imputed vs real phenotype values")
@@ -159,28 +176,99 @@ dummy <- lapply(corr_plots_methods, function(p) print(p))
 ```
 
 
-## 7. Impute full data set
-For this dataset, imputation via mvn (non-genetic) and phenix (genetic) yielded the
-strongest average correlations between the imputed and real measurements. The traits that can be reliable imputed (correlation greater than 95\%) are selected and the missing values from the phenotype set with `r nrow(pheno)` rats imputed.
+# 7. Impute full data set
+The traits that can be reliable imputed (correlation greater than 95\%) are selected and the missing values from the phenotype set with `r nrow(combined)` rats imputed.
 
-```{r impute full data set}
-traits2keep <-  data.frame(sapply(c("phenix", "mvn"), imputableTraits, 
+```{r impute full data set, cache=TRUE}
+imputable <-  data.frame(sapply(c("phenix", "mvn", "mice"), imputableTraits, 
                                   imputed, cutoff))
-        
-pheno_phenix <- pheno[, traits2keep$phenix]
-impute_phenix <- imputeData(data=as.matrix(pheno_phenix), 
-                            kinship=as.matrix(kinship),
-                            method="phenix")
 
-write.table(impute_phenix$imp$phenix$imp, paste(directory, 
-                                 "/phenotypes_phenix.csv", sep=""), 
+imputed_phenos <- imputeData(data=combined, methods= c("phenix", "mice", "mvn"), 
+                       imputable=imputable, cutoff=0.95, testing=FALSE, 
+                       kinship=as.matrix(kinship))
+saveRDS(imputed_phenos, paste(directory, "/imputed_phenotypes.rds", sep=""))
+```
+
+```{r regress covariates from phenotypes}
+phenotype2covs <- readRDS(paste(rawdir, "/phenotype2covs.rds", sep=""))
+
+regress <- function(trait, pheno, cov, pheno2cov ) {
+    which.cov <- which(colnames(cov) %in% pheno2cov[[trait]])
+    summary(lm(pheno[,colnames(pheno) == trait] ~ cov[,which.cov]))$residuals
+}
+
+combined_phenix <- imputed_phenos$imp$phenix$imp
+pheno_phenix <- combined_phenix[, which(colnames(combined_phenix) %in% colnames(phenotypes_normal))]
+cov_phenix <- combined_phenix[, which(colnames(combined_phenix) %in% colnames(covariates))]
+phenix_reg <- sapply(colnames(pheno_phenix), regress, pheno=pheno_phenix, 
+                    cov=cov_phenix, pheno2cov=phenotype2covs)
+
+write.table(phenix_reg, paste(directory, "/phenotypes_phenix_reg.csv", sep=""), 
             sep=",", col.names=NA, row.names=TRUE, quote=FALSE)
 
-pheno_mvn <- pheno[, traits2keep$mvn]
-impute_mvn <- imputeData(data=as.matrix(pheno_mvn), 
-                            method="mvn")
-write.table(impute_mvn$imp$imp, paste(directory, 
-                                 "/phenotypes_mvn.csv", sep=""), 
+combined_mvn <- imputed_phenos$imp$mvn$imp
+pheno_mvn <- combined_mvn[, which(colnames(combined_mvn) %in% colnames(phenotypes_normal))]
+cov_mvn <- combined_mvn[, which(colnames(combined_mvn) %in% colnames(covariates))]
+mvn_reg <- sapply(colnames(pheno_mvn), regress, pheno=pheno_mvn, 
+                    cov=cov_mvn, pheno2cov=phenotype2covs)
+
+write.table(mvn_reg, paste(directory, "/phenotypes_mvn_reg.csv", sep=""), 
+            sep=",", col.names=NA, row.names=TRUE, quote=FALSE)
+
+
+combined_mice<- imputed_phenos$imp$mice$imp
+pheno_mice <- combined_mice[, which(colnames(combined_mice) %in% colnames(phenotypes_normal))]
+cov_mice <- combined_mice[, which(colnames(combined_mice) %in% colnames(covariates))]
+mice_reg <- sapply(colnames(pheno_mice), regress, pheno=pheno_mice, 
+                    cov=cov_mice, pheno2cov=phenotype2covs)
+
+write.table(mice_reg, paste(directory, "/phenotypes_mice_reg.csv", sep=""), 
             sep=",", col.names=NA, row.names=TRUE, quote=FALSE)
 
 ```
+
+The pairwise correlation of the phenotypes imputed with mice, mvn and phenix is shown below.
+In general, imputed phenotypes correlate strongly, while for two traits the correlation of the mice imputed traits
+versus imputation with mvn and phenix falls below a correlation of 0.95. 
+
+```{r corr imputed phenotypes}
+commonImputable <- intersect(intersect(colnames(mice_reg), colnames(mvn_reg)), 
+                             colnames(phenix_reg))
+
+mice_mvn <- do.call(rbind, lapply(commonImputable, function(x) {
+    tmp <- Hmisc::rcorr(mice_reg[,colnames(mice_reg) == x], 
+                        mvn_reg[,colnames(mvn_reg) == x])
+    return(data.frame(p=tmp$P[1,2], r2=tmp$r[1,2], comparison="mice_mvn", trait=x))
+}))
+
+mice_phenix <- do.call(rbind, lapply(commonImputable, function(x) {
+    tmp <- Hmisc::rcorr(mice_reg[,colnames(mice_reg) == x], 
+                        phenix_reg[,colnames(phenix_reg) == x])
+    return(data.frame(p=tmp$P[1,2], r2=tmp$r[1,2], comparison="mice_phenix", trait=x))
+}))
+
+phenix_mvn <- do.call(rbind, lapply(commonImputable, function(x) {
+    tmp <- Hmisc::rcorr(phenix_reg[,colnames(phenix_reg) == x], 
+                        mvn_reg[,colnames(mvn_reg) == x])
+    return(data.frame(p=tmp$P[1,2], r2=tmp$r[1,2],comparison="mvn_phenix", trait=x))
+}))
+
+compare_corr <- rbind(mice_mvn, mice_phenix, phenix_mvn)
+compare_corr$comparison <- as.factor(compare_corr$comparison)
+
+p <- ggplot(data=compare_corr, aes(x=comparison, y=r2, 
+                                   color=comparison))
+p + geom_boxplot(outlier.colour = NA) + 
+    geom_label(data=dplyr::filter(compare_corr, r2 < 0.95), aes(y=r2, 
+                                                                x=comparison,
+                                                                label=trait),
+               nudge_y = -0.002, size=3) +
+    geom_jitter(width = 0.2) +
+    scale_color_manual(values=c('#1b9e77','#d95f02','#7570b3'), guide=FALSE) +
+    ylab("Pearson Correlation") +
+    theme_bw()
+
+```
+
+\newpage
+# 8. References

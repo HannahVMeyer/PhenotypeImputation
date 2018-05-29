@@ -10,27 +10,38 @@ cor2matrices <- function(mat1, mat2) {
 correlation_plot <- function (corr, 
                               method = c("circle", "square", "ellipse", 
                                          "number", "shade", "color", "pie"), 
-                        type = c("full", "lower", "upper"), 
-                        colLabels=NULL, rowLabels=NULL,
-          add = FALSE, col = NULL, bg = "white", title = "", is.corr = TRUE, 
-          diag = TRUE, outline = FALSE, mar = c(0, 0, 0, 0), addgrid.col = NULL, 
-          addCoef.col = NULL, addCoefasPercent = FALSE, 
-          order = c("original", "AOE", "FPC", "hclust", "alphabet"), 
-          hclust.method = c("complete", "ward", "ward.D", "ward.D2", "single", 
-                            "average", "mcquitty", "median", "centroid"), 
-          addrect = NULL, rect.col = "black", 
-          rect.lwd = 2, tl.pos = NULL, tl.cex = 1, tl.col = "red", 
-          tl.offset = 0.4, tl.srt = 90, cl.pos = NULL, cl.lim = NULL, 
-          cl.length = NULL, cl.cex = 0.8, cl.ratio = 0.15, cl.align.text = "c", 
-          cl.offset = 0.5, number.cex = 1, number.font = 2, number.digits = NULL, 
-          cl.title = "Pearson Correlation", cl.title.cex = 0.8,
-          addshade = c("negative", "positive", "all"), shade.lwd = 1, 
-          shade.col = "white", p.mat = NULL, sig.level = 0.05, 
-          insig = c("pch", "p-value", "blank", "n"), pch = 4, pch.col = "black", 
-          pch.cex = 3, plotCI = c("n", "square", "circle", "rect"), 
-          lowCI.mat = NULL, uppCI.mat = NULL, na.label = "?", 
-          na.label.col = "black", font = 1,
-          ...) {
+                              type = c("full", "lower", "upper"), 
+                              p.mat = NULL, sig.level = 0.05, isLog10=FALSE,
+                              insig = c("pch", "p-value", "blank", "n"), 
+                              show.color = "corr", show.shape="corr",
+                              colLabels=NULL, rowLabels=NULL,
+                              add = FALSE, col = NULL, bg = "white", title = "", 
+                              is.corr = TRUE, diag = TRUE, outline = FALSE, 
+                              mar = c(0, 0, 0, 0), addgrid.col = NULL, 
+                              addCoef.col = NULL, addCoefasPercent = FALSE, 
+                              order = c("original", "AOE", "FPC", "hclust", 
+                                        "alphabet"), 
+                              hclust.method = c("complete", "ward", "ward.D", 
+                                                "ward.D2", "single", "average", 
+                                                "mcquitty", "median", 
+                                                "centroid"), 
+                              addrect = NULL, rect.col = "black", rect.lwd = 2, 
+                              tl.pos = NULL, tl.cex = 1, tl.col = "red", 
+                              tl.offset = 0.4, tl.srt = 90, cl.pos = NULL, 
+                              cl.lim = NULL, cl.length = NULL, cl.cex = 0.8, 
+                              cl.ratio = 0.15, cl.align.text = "c", 
+                              cl.offset = 0.5, number.cex = 1, number.font = 2, 
+                              number.digits = NULL, 
+                              cl.title = "Pearson Correlation", 
+                              cl.title.cex = 0.8,
+                              addshade = c("negative", "positive", "all"),
+                              shade.lwd = 1, 
+                              shade.col = "white", pch = 4, pch.col = "black", 
+                              pch.cex = 3, 
+                              plotCI = c("n", "square", "circle", "rect"), 
+                              lowCI.mat = NULL, uppCI.mat = NULL, 
+                              na.label = "?", 
+                              na.label.col = "black", font = 1, ...) {
     method <- match.arg(method)
     type <- match.arg(type)
     order <- match.arg(order)
@@ -52,7 +63,7 @@ correlation_plot <- function (corr,
             cl.lim <- c(-1, 1)
         }
         else {
-            cl.lim <- c(min(corr), max(corr))
+            cl.lim <- c(min(corr, na.rm=TRUE), max(corr, na.rm=TRUE))
         }
     }
     intercept <- 0
@@ -109,8 +120,8 @@ correlation_plot <- function (corr,
     }
     apply_mat_filter <- function(mat) {
         x <- matrix(1:n * m, n, m)
-        switch(type, upper = mat[row(x) > col(x)] <- Inf, lower = mat[row(x) < 
-                                                                          col(x)] <- Inf)
+        switch(type, upper = mat[row(x) > col(x)] <- Inf, 
+               lower = mat[row(x) < col(x)] <- Inf)
         if (!diag) {
             diag(mat) <- Inf
         }
@@ -134,23 +145,61 @@ correlation_plot <- function (corr,
         return(Pos)
     }
     Pos <- getPos.Dat(corr)[[1]]
-    n2 <- max(Pos[, 2])
-    n1 <- min(Pos[, 2])
+    if (any(is.na(corr)) && is.character(na.label)) {
+        PosNA <- getPos.NAs(corr)
+    } else {
+        PosNA <- NULL
+    }
+    AllCoords <- rbind(Pos, PosNA)
+    n2 <- max(AllCoords[, 2])
+    n1 <- min(AllCoords[, 2])
     nn <- n2 - n1
-    newrownames <- rowLabels[(n + 1 - n2):(n + 1 - n1)]
-    m2 <- max(Pos[, 1])
-    m1 <- min(Pos[, 1])
+    m2 <- max(AllCoords[, 1])
+    m1 <- min(AllCoords[, 1])
     mm <- max(1, m2 - m1)
+    #n2 <- max(Pos[, 2])
+    #n1 <- min(Pos[, 2])
+    #nn <- n2 - n1
+    newrownames <- rowLabels[(n + 1 - n2):(n + 1 - n1)]
+    #m2 <- max(Pos[, 1])
+    #m1 <- min(Pos[, 1])
+    #mm <- max(1, m2 - m1)
     newcolnames <- colLabels[m1:m2]
-    DAT <- getPos.Dat(corr)[[2]]
-    len.DAT <- length(DAT)
-    assign.color <- function(dat = DAT, color = col) {
+    if (show.color == "corr") {
+        DAT.color <- getPos.Dat(corr)[[2]]
+    } else if (show.color == "p") {
+        tmp.p <- p.mat
+        if (any(is.na(tmp.p) != is.na(corr))) {
+            na.tmp <- which(is.na(tmp.p))
+            na.corr <- which(is.na(corr))
+            tmp.p[na.tmp[!(na.tmp %in% na.corr)]] <- 0
+        }
+        DAT.color <- getPos.Dat(tmp.p)[[2]]
+    } else {
+        stop("show.color type not known")
+    }
+    if (show.shape == "corr") {
+        DAT.shape <- getPos.Dat(corr)[[2]]
+    } else if (show.shape == "p") {
+        tmp.p <- p.mat
+        if (any(is.na(tmp.p) != is.na(corr))) {
+            na.tmp <- which(is.na(tmp.p))
+            na.corr <- which(is.na(corr))
+            tmp.p[na.tmp[!(na.tmp %in% na.corr)]] <- 0
+        }
+        DAT.shape <- getPos.Dat(tmp.p)[[2]]
+    } else {
+        stop("show.shape type not known")
+    }
+    DAT.shape <- DAT.shape/max(abs(DAT.shape))
+    len.DAT <- length(DAT.shape)
+    assign.color <- function(dat, color) {
         newcorr <- (dat + 1)/2
         newcorr[newcorr <= 0] <- 0
         newcorr[newcorr >= 1] <- 1 - 1e-16
         color[floor(newcorr * length(color)) + 1]
     }
-    col.fill <- assign.color()
+    col.fill <- assign.color(dat=DAT.color, color=col)
     isFALSE <- function(x) identical(x, FALSE)
     isTRUE <- function(x) identical(x, TRUE)
     if (isFALSE(tl.pos)) {
@@ -204,8 +253,7 @@ correlation_plot <- function (corr,
                       mm * cl.ratio * (cl.pos == "r")) + c(-0.35, 0.15)
         ylim <- c(n1 - 0.5 - nn * cl.ratio * (cl.pos == "b"), 
                   n2 + 0.5 + ylabwidth * abs(sin(tl.srt * pi/180)) + 
-                      laboffset)
-        +c(-0.15, 0.35)
+                      laboffset) + c(-0.15, 0.35)
         if (.Platform$OS.type == "windows") {
             grDevices::windows.options(width = 7, height = 7 * 
                                            diff(ylim)/diff(xlim))
@@ -214,11 +262,12 @@ correlation_plot <- function (corr,
                     ylab = "", xaxs = "i", yaxs = "i")
     }
     laboffset <- strwidth("W", cex = tl.cex) * tl.offset
-    symbols(Pos, add = TRUE, inches = FALSE, squares = rep(1, 
-                                                           len.DAT), bg = bg, fg = bg)
+    symbols(AllCoords, add = TRUE, inches = FALSE, 
+            rectangles = matrix(1, nrow(AllCoords), 2), 
+            bg = bg, fg = addgrid.col)
     if (method == "circle" && plotCI == "n") {
         symbols(Pos, add = TRUE, inches = FALSE, circles = 0.9 * 
-                    abs(DAT)^0.5/2, fg = col.border, bg = col.fill)
+                    abs(DAT.shape)^0.5/2, fg = col.border, bg = col.fill)
     }
     if (method == "ellipse" && plotCI == "n") {
         ell.dat <- function(rho, length = 99) {
@@ -227,10 +276,10 @@ correlation_plot <- function (corr,
             y <- cos(k - acos(rho)/2)/2
             return(cbind(rbind(x, y), c(NA, NA)))
         }
-        ELL.dat <- lapply(DAT, ell.dat)
+        ELL.dat <- lapply(DAT.shape, ell.dat)
         ELL.dat2 <- 0.85 * matrix(unlist(ELL.dat), ncol = 2, 
                                   byrow = TRUE)
-        ELL.dat2 <- ELL.dat2 + Pos[rep(1:length(DAT), each = 100), 
+        ELL.dat2 <- ELL.dat2 + Pos[rep(1:length(DAT.shape), each = 100), 
                                    ]
         polygon(ELL.dat2, border = col.border, col = col.fill)
     }
@@ -241,7 +290,7 @@ correlation_plot <- function (corr,
     stopifnot(number.digits >= 0)
     if (method == "number" && plotCI == "n") {
         text(Pos[, 1], Pos[, 2], font = number.font, col = col.fill, 
-             labels = round((DAT - int) * ifelse(addCoefasPercent, 
+             labels = round((DAT.shape - int) * ifelse(addCoefasPercent, 
                                                  100, 1)/zoom, number.digits), 
              cex = number.cex)
     }
@@ -254,8 +303,8 @@ correlation_plot <- function (corr,
                     fg = na.label.col)
         }
         else if (nchar(na.label) %in% 1:NA_LABEL_MAX_CHARS) {
-            symbols(PosNA, add = TRUE, inches = FALSE, 
-                    squares = rep(1, nrow(PosNA)), fg = bg, bg = bg)
+           # symbols(PosNA, add = TRUE, inches = FALSE, 
+           #         squares = rep(1, nrow(PosNA)), fg = bg, bg = bg)
             text(PosNA[, 1], PosNA[, 2], font = number.font, 
                  col = na.label.col, labels = na.label, cex = number.cex, 
                  ...)
@@ -275,18 +324,18 @@ correlation_plot <- function (corr,
             y <- c(0, sin(k)/2, 0)
             cbind(rbind(x, y), c(NA, NA))
         }
-        PIE.dat <- lapply(DAT * 2 * pi, pie.dat)
+        PIE.dat <- lapply(DAT.shape * 2 * pi, pie.dat)
         len.pie <- unlist(lapply(PIE.dat, length))/2
         PIE.dat2 <- 0.85 * matrix(unlist(PIE.dat), ncol = 2, 
                                   byrow = TRUE)
-        PIE.dat2 <- PIE.dat2 + Pos[rep(1:length(DAT), len.pie), 
+        PIE.dat2 <- PIE.dat2 + Pos[rep(1:length(DAT.shape), len.pie), 
                                    ]
         polygon(PIE.dat2, border = "black", col = col.fill)
     }
     if (method == "shade" && plotCI == "n") {
         addshade <- match.arg(addshade)
-        symbols(Pos, add = TRUE, inches = FALSE, squares = rep(1, 
-                                                               len.DAT), bg = col.fill, fg = addgrid.col)
+        symbols(Pos, add = TRUE, inches = FALSE, 
+                squares = rep(1, len.DAT), bg = col.fill, fg = addgrid.col)
         shade.dat <- function(w) {
             x <- w[1]
             y <- w[2]
@@ -298,33 +347,33 @@ correlation_plot <- function (corr,
             dat <- NA
             if ((addshade == "positive" || addshade == "all") && 
                 rho > 0) {
-                dat <- cbind(c(x1, x1, x), c(y, y1, y1), c(x, 
-                                                           x2, x2), c(y2, y2, y))
+                dat <- cbind(c(x1, x1, x), c(y, y1, y1), 
+                             c(x, x2, x2), c(y2, y2, y))
             }
             if ((addshade == "negative" || addshade == "all") && 
                 rho < 0) {
-                dat <- cbind(c(x1, x1, x), c(y, y2, y2), c(x, 
-                                                           x2, x2), c(y1, y1, y))
+                dat <- cbind(c(x1, x1, x), c(y, y2, y2), 
+                             c(x, x2, x2), c(y1, y1, y))
             }
             return(t(dat))
         }
-        pos_corr <- rbind(cbind(Pos, DAT))
+        pos_corr <- rbind(cbind(Pos, DAT.shape))
         pos_corr2 <- split(pos_corr, 1:nrow(pos_corr))
         SHADE.dat <- matrix(na.omit(unlist(lapply(pos_corr2, 
-                                                  shade.dat))), byrow = TRUE, ncol = 4)
-        segments(SHADE.dat[, 1], SHADE.dat[, 2], SHADE.dat[, 
-                                                           3], SHADE.dat[, 4], col = shade.col, lwd = shade.lwd)
+                                                  shade.dat))), 
+                            byrow = TRUE, ncol = 4)
+        segments(SHADE.dat[, 1], SHADE.dat[, 2], 
+                 SHADE.dat[, 3], SHADE.dat[, 4], col = shade.col, 
+                 lwd = shade.lwd)
     }
     if (method == "square" && plotCI == "n") {
-        symbols(Pos, add = TRUE, inches = FALSE, squares = abs(DAT)^0.5, 
+        symbols(Pos, add = TRUE, inches = FALSE, squares = abs(DAT.shape)^0.5, 
                 bg = col.fill, fg = col.border)
     }
     if (method == "color" && plotCI == "n") {
-        symbols(Pos, add = TRUE, inches = FALSE, squares = rep(1, 
-                                                               len.DAT), bg = col.fill, fg = col.border)
+        symbols(Pos, add = TRUE, inches = FALSE, 
+                squares = rep(1, len.DAT), bg = col.fill, fg = col.border)
     }
-    symbols(Pos, add = TRUE, inches = FALSE, bg = NA, squares = rep(1, 
-                                                                    len.DAT), fg = addgrid.col)
     if (plotCI != "n") {
         if (is.null(lowCI.mat) || is.null(uppCI.mat)) {
             stop("Need lowCI.mat and uppCI.mat!")
@@ -355,32 +404,33 @@ correlation_plot <- function (corr,
                     fg = ifelse(sig > 0, col.fill, color_bigabs))
             symbols(pos.lowNew[, 1], pos.lowNew[, 2], add = TRUE, 
                     inches = FALSE, circles = 0.95 * abs(smallabs)^0.5/2, 
-                    bg = ifelse(sig > 0, bg, color_smallabs), fg = ifelse(sig > 
-                                                                              0, col.fill, color_smallabs))
+                    bg = ifelse(sig > 0, bg, color_smallabs), 
+                    fg = ifelse(sig > 0, col.fill, color_smallabs))
         }
         if (plotCI == "square") {
             symbols(pos.uppNew[, 1], pos.uppNew[, 2], add = TRUE, 
-                    inches = FALSE, squares = abs(bigabs)^0.5, bg = ifelse(sig > 
-                                                                               0, col.fill, color_bigabs), fg = ifelse(sig > 
-                                                                                                                           0, col.fill, color_bigabs))
+                    inches = FALSE, squares = abs(bigabs)^0.5, 
+                    bg = ifelse(sig > 0, col.fill, color_bigabs), 
+                    fg = ifelse(sig > 0, col.fill, color_bigabs))
             symbols(pos.lowNew[, 1], pos.lowNew[, 2], add = TRUE, 
                     inches = FALSE, squares = abs(smallabs)^0.5, 
-                    bg = ifelse(sig > 0, bg, color_smallabs), fg = ifelse(sig > 
-                                                                              0, col.fill, color_smallabs))
+                    bg = ifelse(sig > 0, bg, color_smallabs), 
+                    fg = ifelse(sig > 0, col.fill, color_smallabs))
         }
         if (plotCI == "rect") {
             rect.width <- 0.25
             rect(pos.uppNew[, 1] - rect.width, pos.uppNew[, 2] + 
-                     smallabs/2, pos.uppNew[, 1] + rect.width, pos.uppNew[, 
-                                                                          2] + bigabs/2, col = col.fill, border = col.fill)
-            segments(pos.lowNew[, 1] - rect.width, pos.lowNew[, 
-                                                              2] + DAT/2, pos.lowNew[, 1] + rect.width, pos.lowNew[, 
-                                                                                                                   2] + DAT/2, col = "black", lwd = 1)
-            segments(pos.uppNew[, 1] - rect.width, pos.uppNew[, 
-                                                              2] + uppNew/2, pos.uppNew[, 1] + rect.width, 
+                     smallabs/2, pos.uppNew[, 1] + rect.width, 
+                 pos.uppNew[, 2] + bigabs/2, col = col.fill, border = col.fill)
+            segments(pos.lowNew[, 1] - rect.width, 
+                     pos.lowNew[, 2] + DAT.shape/2, 
+                     pos.lowNew[, 1] + rect.width,
+                     pos.lowNew[, 2] + DAT/2, col = "black", lwd = 1)
+            segments(pos.uppNew[, 1] - rect.width, 
+                     pos.uppNew[, 2] + uppNew/2, pos.uppNew[, 1] + rect.width, 
                      pos.uppNew[, 2] + uppNew/2, col = "black", lwd = 1)
-            segments(pos.lowNew[, 1] - rect.width, pos.lowNew[, 
-                                                              2] + lowNew/2, pos.lowNew[, 1] + rect.width, 
+            segments(pos.lowNew[, 1] - rect.width, 
+                     pos.lowNew[, 2] + lowNew/2, pos.lowNew[, 1] + rect.width, 
                      pos.lowNew[, 2] + lowNew/2, col = "black", lwd = 1)
             segments(pos.lowNew[, 1] - 0.5, pos.lowNew[, 2], 
                      pos.lowNew[, 1] + 0.5, pos.lowNew[, 2], col = "grey70", 
@@ -393,7 +443,11 @@ correlation_plot <- function (corr,
         }
         pos.pNew <- getPos.Dat(p.mat)[[1]]
         pNew <- getPos.Dat(p.mat)[[2]]
-        ind.p <- which(pNew > sig.level)
+        if (!isLog10) {
+            ind.p <- which(pNew > sig.level)
+        } else {
+            ind.p <- which(pNew < -log10(sig.level))
+        }
         p_inSig <- length(ind.p) > 0
         if (insig == "pch" && p_inSig) {
             points(pos.pNew[, 1][ind.p], pos.pNew[, 2][ind.p], 
@@ -405,12 +459,13 @@ correlation_plot <- function (corr,
         }
         if (insig == "blank" && p_inSig) {
             symbols(pos.pNew[, 1][ind.p], pos.pNew[, 2][ind.p], 
-                    inches = FALSE, squares = rep(1, length(pos.pNew[, 
-                                                                     1][ind.p])), fg = addgrid.col, bg = bg, add = TRUE)
+                    inches = FALSE, 
+                    squares = rep(1, length(pos.pNew[, 1][ind.p])), 
+                    fg = addgrid.col, bg = bg, add = TRUE)
         }
     }
     if (cl.pos != "n") {
-        colRange <- assign.color(dat = cl.lim2)
+        colRange <- assign.color(dat = cl.lim2, color=col)
         ind1 <- which(col == colRange[1])
         ind2 <- which(col == colRange[2])
         colbar <- col[ind1:ind2]
@@ -423,7 +478,8 @@ correlation_plot <- function (corr,
             vertical <- TRUE
             xlim <- c(m2 + 0.5 + mm * 0.02, m2 + 0.5 + mm * cl.ratio)
             ylim <- c(n1 - 0.5, n2 + 0.5)
-            text(x = m2 + 0.5 + mm * cl.ratio + (m2 + 0.5 + mm * cl.ratio) * 0.01,
+            text(x = m2 + 0.5 + mm * cl.ratio +
+                     (m2 + 0.5 + mm * cl.ratio) * 0.01,
                  y = mean(ylim),
                  labels=cl.title, cex=cl.title.cex, adj=0.5, srt=270)
         }
@@ -461,29 +517,28 @@ correlation_plot <- function (corr,
             pos.ylabel <- cbind(m1:(m1 + nn) - 0.5, n2:n1)
             pos.ylabel <- pos.ylabel[1:min(n, m), ]
             symbols(pos.ylabel[, 1] + 0.5, pos.ylabel[, 2], add = TRUE, 
-                    bg = bg, fg = addgrid.col, inches = FALSE, squares = rep(1, 
-                                                                             length(pos.ylabel[, 1])))
+                    bg = bg, fg = addgrid.col, inches = FALSE, 
+                    squares = rep(1, length(pos.ylabel[, 1])))
             text(pos.ylabel[, 1] + 0.5, pos.ylabel[, 2], 
                  newcolnames[1:min(n, m)], col = tl.col, cex = tl.cex, 
-                 font = font,...)
-        }
-        else {
+                 font = font)
+        } else {
             text(pos.xlabel[, 1], pos.xlabel[, 2], newcolnames, 
-                 srt = tl.srt, adj = ifelse(tl.srt == 0, c(0.5, 
-                                                           0), c(0, 0)), 
+                 srt = tl.srt, 
+                 adj = ifelse(tl.srt == 0, c(0.5, 0), c(0, 0)), 
                  col = tl.col, cex = tl.cex, offset = tl.offset, 
-                 font = font,
-                 ...)
+                 font = font)
             text(pos.ylabel[, 1], pos.ylabel[, 2], newrownames, 
                  col = tl.col, cex = tl.cex, pos = 2, offset = tl.offset, 
-                 font= font,
-                 ...)
+                 font= font)
         }
     }
-    title(title, ...)
+    title(title)
     if (!is.null(addCoef.col) && method != "number") {
-        text(Pos[, 1], Pos[, 2], col = addCoef.col, labels = round((DAT - 
-                                                                        int) * ifelse(addCoefasPercent, 100, 1)/zoom, number.digits), 
+        text(Pos[, 1], Pos[, 2], col = addCoef.col, 
+             labels = round((DAT.shape - int) * 
+                                ifelse(addCoefasPercent, 100, 1)/zoom, 
+                            number.digits), 
              cex = number.cex, font = number.font)
     }
     if (type == "full" && plotCI == "n" && !is.null(addgrid.col)) {

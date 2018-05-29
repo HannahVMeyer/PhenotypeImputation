@@ -1,6 +1,6 @@
 fullPhenotypes <-function(data) {
     noNA_samples <- !apply(data, 1, function(x) any(is.na(x)))
-    data_noNA <- pheno[noNA_samples,]
+    data_noNA <- data[noNA_samples,]
     return(data_noNA)
 }
 
@@ -24,8 +24,8 @@ correlationMissingness <- function(data) {
                   data[!is.na(data[,y]),y],type="spearman")$r[1,2]
         })
     }))
-    colnames(corrMiss) <- colnames(pheno)
-    rownames(corrMiss) <- colnames(pheno)
+    colnames(corrMiss) <- colnames(data)
+    rownames(corrMiss) <- colnames(data)
     return(corrMiss)
 }
 
