@@ -1,7 +1,7 @@
-#' Imputation
+#' PhenotypeImputation
 #'
 #' @docType package
-#' @name Imputation
+#' @name PhenotypeImputation
 #' @importFrom stats median sd
 #' @importFrom utils read.table write.table 
 #' @importFrom dplyr filter
