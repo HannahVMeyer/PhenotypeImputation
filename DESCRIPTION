@@ -1,4 +1,4 @@
-Package: imputation
+Package: PhenotypeImputation
 Title: Workflow for phenotype imputation
 Version: 0.0.1
 Authors@R: person("Hannah", "Meyer", email = "Hannah.v.meyer@gmail.com", 
@@ -19,7 +19,7 @@ Imports:
     ggplot2,
     reshape2,
     dplyr
-License: What license is it under?
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Suggests: knitr,
