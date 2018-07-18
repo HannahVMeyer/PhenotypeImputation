@@ -11,10 +11,9 @@ toc_depth: 2
 fig_caption: yes
 vignette: >
     %\VignetteIndexEntry{Pre-pocessing of rat phenome dataset}
-%\VignetteEngine{knitr::rmarkdown}
-%\VignetteEncoding{UTF-8}
+    %\VignetteEngine{knitr::rmarkdown}
+    %\VignetteEncoding{UTF-8}
 ---
-
 
 ```{r setup, include = FALSE}
 devtools::load_all()
@@ -22,11 +21,6 @@ knitr::opts_chunk$set(
     collapse = TRUE,
     comment = "#>"
 )
-```
-
-```{r paths}
-## directory ####
-directory <- "~/data/LiMMBo/rat/rawdata"
 ```
 
 # 1. Dataset
@@ -40,6 +34,9 @@ information about the data (distribution, type, etc) was taken from @Baud2013,
 @Baud2014.
 
 ```{r}
+## directory ####
+directory <- "~/data/LiMMBo/rat/rawdata"
+
 ## from figshare ####
 measures <- data.table::fread(paste(directory, "/figshare/measures.txt", sep=""), 
                   data.table=FALSE, stringsAsFactors = FALSE)
@@ -72,7 +69,8 @@ In the following, `measures` is split based on their classification in the
 for this analysis, based on the original studies assumption of normality 
 (as indicated with Mixed model in the analysis section of @Baud2014).
 
-```{r sorting data}
+## a) Phenotypes
+```{r phenotypes}
 covariate_names <- dplyr::filter(pheno_ScientificData, 
                                  Phenotypingtest == "Covariate")
 phenotype_names <- dplyr::filter(pheno_ScientificData, 
@@ -103,8 +101,10 @@ write.table(phenotypes_normal, paste(directory, "/phenotypes_normal.csv",
 write.table(phenotypes_notNormal, paste(directory, "/phenotypes_notNormal.csv", 
                                         sep=""),
             row.names=TRUE, col.names=NA, quote=FALSE, sep=",")
+```
 
-## covariates ####
+## b) Covariates
+```{r covariates}
 covariates <- measures[, colnames(measures) %in% 
                            c("BW_week11", "BW_week14", "BW_week17", 
                              covariate_names$Measure) ]
@@ -116,19 +116,13 @@ rownames(covariates) <- measures$SUBJECT.NAME
 
 # manually match covariate names from NatGenetc supp info to colnames of measure/
 # covariates
-
-uniqueCovariatesTested <- unique(unlist(phenotype2covs))
-#[1] "sex"            "batch"          "is.albino"      "Haemalysis"     "BW_at_day28_pi" "BW_at_day9_pi"  "age"         
-#[8] "BW_at_IPGTT"    "test_worked"
-    
- 
 #colnames(covariates)
-#[1] "BW_week11"              "age_dissection"         "analyser_ear_hole"      "batch"                 
-#[5] "blood_pressure_time"    "cage"                   "date_IPGTT"             "date_of_birth"         
-#[9] "died_of_EAE"            "sibship"                "Haemalysis_serum"       "is.albino"             
-#[13] "litter_size"            "max_EAE_score"          "reliable_ear_hole"      "scanner_ear_hole"      
-#[17] "EAE_score_at_sacrifice" "sex"                    "IPGTT_test_worked"      "BW_week14"             
-#[21] "BW_week17"              "Exp_novel_cage"         "Exp_zero_maze"          "Exp_shuttlebox"        
+#[1] "BW_week11"   "age_dissection"  "analyser_ear_hole"  "batch"                 
+#[5] "blood_pressure_time"   "cage"  "date_IPGTT"   "date_of_birth"         
+#[9] "died_of_EAE"   "sibship"   "Haemalysis_serum"   "is.albino"             
+#[13] "litter_size"   "max_EAE_score"   "reliable_ear_hole"   "scanner_ear_hole"      
+#[17] "EAE_score_at_sacrifice" "sex"   "IPGTT_test_worked"   "BW_week14"             
+#[21] "BW_week17"   "Exp_novel_cage"   "Exp_zero_maze" "Exp_shuttlebox"        
 
 ## information about conversion of these variables directly from from Amelie Baud
 colnames(covariates)[colnames(covariates) == "BW_week11"] <- "BW_at_IPGTT"
@@ -137,16 +131,11 @@ colnames(covariates)[colnames(covariates) == "BW_week17"] <- "BW_at_day28_pi"
 colnames(covariates)[colnames(covariates) ==  "age_dissection"] <- "age"
 colnames(covariates)[colnames(covariates) == "Haemalysis_serum"] <- "Haemalysis"
 colnames(covariates)[colnames(covariates) == "IPGTT_test_worked"] <- "test_worked"
-
-relevantCovariates <- covariates[,colnames(covariates) %in% uniqueCovariatesTested]
-write.table(relevantCovariates, paste(directory, "/covariates.csv", sep=""),
-            row.names=TRUE, col.names=NA, quote=FALSE, sep=",")
-
 ```
 
 # 3. Map covariates to phenotypes
 For downstream analysis, map covariates to the phenotypes they were associated
-with in the original study.
+with in the original study. Save relevant covariates and mapping.
 ```{r covariate mapping}
 phenotype_names_N <- phenotype_names_N[phenotype_names_N$Measure %in% 
                                            colnames(phenotypes_normal),]
@@ -157,5 +146,13 @@ phenotype2covs <- lapply(1:nrow(phenotype_names_N), function(x) {
     unlist(strsplit(phenotype_names_N$Covariates[x], ","))
 })
 names(phenotype2covs) <- phenotype_names_N$Measure
-```
 saveRDS(phenotype2covs, paste(directory, "/phenotype2covs.rds", sep=""))
+
+uniqueCovariatesTested <- unique(unlist(phenotype2covs))
+#[1] "sex"            "batch"          "is.albino"      "Haemalysis"     
+#[5] "BW_at_day28_pi" "BW_at_day9_pi"  "age" "BW_at_IPGTT"    "test_worked"
+relevantCovariates <- covariates[,colnames(covariates) %in% uniqueCovariatesTested]
+write.table(relevantCovariates, paste(directory, "/covariates.csv", sep=""),
+            row.names=TRUE, col.names=NA, quote=FALSE, sep=",")
+
+```
