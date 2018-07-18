@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+inst/doc
+imputation.Rproj
+vignettes/Workflow_ratData_cache
+vignettes/Workflow_ratData_files
+vignettes/Workflow_yeastData_cache
+vignettes/Workflow_yeastData_files
+vignettes/*tex
+vignettes/*log
