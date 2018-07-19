@@ -35,14 +35,15 @@ information about the data (distribution, type, etc) was taken from @Baud2013,
 
 ```{r}
 ## directory ####
-directory <- "~/data/LiMMBo/rat/rawdata"
+rawdir <- "~/data/LiMMBo/rat/rawdata"
+directory <- "~/data/LiMMBo/rat/processeddata"
 
 ## from figshare ####
-measures <- data.table::fread(paste(directory, "/figshare/measures.txt", sep=""), 
+measures <- data.table::fread(paste(rawdir, "/figshare/measures.txt", sep=""), 
                   data.table=FALSE, stringsAsFactors = FALSE)
 
 ## from Baud et al (2014) ####
-pheno_ScientificData <- data.table::fread(paste(directory, 
+pheno_ScientificData <- data.table::fread(paste(rawdir, 
                                  "/PublicationResults/ScientificDataS1.csv", 
                                  sep=""),
                            data.table=FALSE, stringsAsFactors = FALSE, 
@@ -51,7 +52,7 @@ colnames(pheno_ScientificData) <- gsub(" ", "", colnames(pheno_ScientificData))
 pheno_ScientificData$gsub <- gsub("_normalized_by_batch", "",
                                   pheno_ScientificData$Measure)
 ## from Baud et al (2013) ####
-pheno_NatGenet <- data.table::fread(paste(directory, 
+pheno_NatGenet <- data.table::fread(paste(rawdir, 
                               "/PublicationResults/", 
                               "SupplementaryTable1_Phenotypes.csv", sep=""),
                               data.table=FALSE, stringsAsFactors = FALSE, 
@@ -139,7 +140,7 @@ with in the original study. Save relevant covariates and mapping.
 ```{r covariate mapping}
 phenotype_names_N <- phenotype_names_N[phenotype_names_N$Measure %in% 
                                            colnames(phenotypes_normal),]
-phenotype_names_N <- phenotype_names_N[  match(colnames(phenotypes_normal), 
+phenotype_names_N <- phenotype_names_N[match(colnames(phenotypes_normal), 
                                                phenotype_names_N$Measure),]
 
 phenotype2covs <- lapply(1:nrow(phenotype_names_N), function(x) {
@@ -156,3 +157,4 @@ write.table(relevantCovariates, paste(directory, "/covariates.csv", sep=""),
             row.names=TRUE, col.names=NA, quote=FALSE, sep=",")
 
 ```
+# 4. References
