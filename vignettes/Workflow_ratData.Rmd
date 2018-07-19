@@ -32,12 +32,16 @@ inbred progenitors. 2,006 outbred rats were phenotypes for 195 traits of
 biomedical relevance including hematological, immunological, cardiovascular and 
 fear-related phenotypes. 1,407 of the rats were genotyped @Baud2013,@Baud2014.
 
-The phenotype and genotype data was downloaded from [arrayexpress](https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-2332/) and [figshare](http://dx.doi.org/10.6084/m9.figshare.943485 (2014).).
-The kinship was estimated from these genotypes: the *NrSamples x NrSNPs* 
+The phenotype and genotype data was downloaded from [arrayexpress](https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-2332/) and [figshare](http://dx.doi.org/10.6084/m9.figshare.943485 (2014).). The pre-
+processing of the data is described in detail in the vignette 
+[Pre-processing rat data](https://github.com/HannahVMeyer/PhenotypeImputation/blob/master/vignettes/PrepocessingRatData.pdf)
+The kinship was estimated from these genotypes: the [*NrSamples* x *NrSNPs*] 
 genotypes $X$ were filtered for minor allele frequency of at least 5\% and the 
 kinship estimated as $R=\frac{1}{NrSNPs}X^TX$.
 
 ```{r read data}
+## libraries ####
+library('ggplot2')
 ## directories ####
 rawdir <- "~/data/LiMMBo/rat/rawdata/arrayexpress"
 directory <- "~/data/LiMMBo/rat/processeddata"
@@ -190,7 +194,7 @@ saveRDS(imputed_phenos, paste(directory, "/imputed_phenotypes.rds", sep=""))
 ```
 
 ```{r regress covariates from phenotypes}
-phenotype2covs <- readRDS(paste(rawdir, "/phenotype2covs.rds", sep=""))
+phenotype2covs <- readRDS(paste(directory, "/phenotype2covs.rds", sep=""))
 
 regress <- function(trait, pheno, cov, pheno2cov ) {
     which.cov <- which(colnames(cov) %in% pheno2cov[[trait]])
